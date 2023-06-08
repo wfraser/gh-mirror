@@ -3,7 +3,7 @@ use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use clap::Parser;
 use serde::Deserialize;
 use serde_json::Deserializer;
@@ -21,6 +21,24 @@ struct Repository {
     ssh_url: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct Error {
+    message: String,
+    documentation_url: Option<String>,
+}
+
+impl std::error::Error for Error {}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Github error: {}", self.message)?;
+        if let Some(doc) = &self.documentation_url {
+            write!(f, " ({doc})")?;
+        }
+        Ok(())
+    }
+}
+
 fn get_repositories(user: &str) -> anyhow::Result<impl Iterator<Item = Repository>> {
     let out = Command::new("gh")
         .arg("api")
@@ -29,9 +47,17 @@ fn get_repositories(user: &str) -> anyhow::Result<impl Iterator<Item = Repositor
         .output()
         .context("failed to run gh api")?;
 
+    if !out.status.success() {
+        return serde_json::from_slice::<Error>(&out.stdout)
+            .map_or_else(
+                |e| Err(e).context("failed to deserialize error"),
+                |e| Err(anyhow!(e))
+            )
+            .context(format!("failed to list repositories for user {user}"));
+    }
+
     Ok(Deserializer::from_slice(&out.stdout)
-        .into_iter::<Vec<Repository>>()
-        .into_iter() // iterator of serde_json::Result<Vec<Repository>>
+        .into_iter::<Vec<Repository>>() // iterator of serde_json::Result<Vec<Repository>>
         .map(|r| r.context("failed to deserialize repos json"))
         .collect::<anyhow::Result<Vec<Vec<Repository>>>>()?
         .into_iter() // iterator of Vec<Repository>
@@ -50,8 +76,7 @@ fn git_clone(path: &Path, url: &str) -> anyhow::Result<()> {
         .status()
         .with_context(|| format!("failed to git clone {url}"))?;
 
-    let hook_path = path.join("hooks").join("pre-receive");
-    let mut hook = File::create(&hook_path)
+    let mut hook = File::create(path.join("hooks").join("pre-receive"))
         .context("failed to create hooks/pre-receive")?;
 
     hook.write_all(b"#!/bin/sh\n\
