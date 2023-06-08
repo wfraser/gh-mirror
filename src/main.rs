@@ -57,10 +57,10 @@ fn get_repositories(user: &str) -> anyhow::Result<impl Iterator<Item = Repositor
     }
 
     Ok(Deserializer::from_slice(&out.stdout)
-        .into_iter::<Vec<Repository>>() // iterator of serde_json::Result<Vec<Repository>>
+        .into_iter::<Vec<Repository>>()
         .map(|r| r.context("failed to deserialize repos json"))
         .collect::<anyhow::Result<Vec<Vec<Repository>>>>()?
-        .into_iter() // iterator of Vec<Repository>
+        .into_iter()
         .flatten()
     )
 }
