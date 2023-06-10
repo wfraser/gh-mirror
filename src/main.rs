@@ -8,10 +8,10 @@ use clap::Parser;
 use serde::Deserialize;
 use serde_json::Deserializer;
 
-/// Create a mirror of all repos of a Github user
+/// Create a mirror of all repos of a GitHub user
 #[derive(Debug, Parser)]
 struct Args {
-    /// Github username
+    /// GitHub username
     user: String,
 }
 
@@ -31,7 +31,7 @@ impl std::error::Error for Error {}
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Github error: {}", self.message)?;
+        write!(f, "GitHub error: {}", self.message)?;
         if let Some(doc) = &self.documentation_url {
             write!(f, " ({doc})")?;
         }
@@ -82,7 +82,7 @@ fn git_clone(path: &Path, url: &str) -> anyhow::Result<()> {
     hook.write_all(b"#!/bin/sh\n\
     \n\
     echo \"Pushing to this repository is forbidden.\"\n\
-    echo \"This is a mirror of a Github repository. Push there instead.\"\n\
+    echo \"This is a mirror of a GitHub repository. Push there instead.\"\n\
     exit 1\n")
         .context("failed to write hooks/pre-receive")?;
 
