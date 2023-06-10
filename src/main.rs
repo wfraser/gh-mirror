@@ -51,7 +51,7 @@ fn get_repositories(user: &str) -> anyhow::Result<impl Iterator<Item = Repositor
         return serde_json::from_slice::<Error>(&out.stdout)
             .map_or_else(
                 |e| Err(e).context("failed to deserialize error"),
-                |e| Err(anyhow!(e))
+                |e| Err(anyhow!(e)),
             )
             .context(format!("failed to list repositories for user {user}"));
     }
@@ -61,8 +61,7 @@ fn get_repositories(user: &str) -> anyhow::Result<impl Iterator<Item = Repositor
         .map(|r| r.context("failed to deserialize repos json"))
         .collect::<anyhow::Result<Vec<Vec<Repository>>>>()?
         .into_iter()
-        .flatten()
-    )
+        .flatten())
 }
 
 fn git_clone(path: &Path, url: &str) -> anyhow::Result<()> {
@@ -79,12 +78,14 @@ fn git_clone(path: &Path, url: &str) -> anyhow::Result<()> {
     let mut hook = File::create(path.join("hooks").join("pre-receive"))
         .context("failed to create hooks/pre-receive")?;
 
-    hook.write_all(b"#!/bin/sh\n\
-    \n\
-    echo \"Pushing to this repository is forbidden.\"\n\
-    echo \"This is a mirror of a GitHub repository. Push there instead.\"\n\
-    exit 1\n")
-        .context("failed to write hooks/pre-receive")?;
+    hook.write_all(
+        b"#!/bin/sh\n\
+        \n\
+        echo \"Pushing to this repository is forbidden.\"\n\
+        echo \"This is a mirror of a GitHub repository. Push there instead.\"\n\
+        exit 1\n",
+    )
+    .context("failed to write hooks/pre-receive")?;
 
     #[cfg(unix)]
     {
