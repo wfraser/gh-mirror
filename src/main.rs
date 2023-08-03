@@ -4,15 +4,21 @@ use std::path::Path;
 use std::process::Command;
 
 use anyhow::{anyhow, Context};
-use clap::Parser;
+use clap::{ArgGroup, Parser};
 use serde::Deserialize;
 use serde_json::Deserializer;
 
 /// Create a mirror of all repos of a GitHub user
 #[derive(Debug, Parser)]
+#[command(group(ArgGroup::new("u").required(true).multiple(false)))]
 struct Args {
     /// GitHub username
-    user: String,
+    #[arg(group = "u")]
+    user: Option<String>,
+
+    /// Mirror repositories for the logged-in user, including private repos.
+    #[arg(long("self"), group = "u")]
+    self_user: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -39,11 +45,15 @@ impl std::fmt::Display for Error {
     }
 }
 
-fn get_repositories(user: &str) -> anyhow::Result<impl Iterator<Item = Repository>> {
+fn get_repositories(user: Option<&str>) -> anyhow::Result<impl Iterator<Item = Repository>> {
     let out = Command::new("gh")
         .arg("api")
         .arg("--paginate")
-        .arg(format!("users/{user}/repos"))
+        .arg(if let Some(user) = user {
+            format!("users/{user}/repos")
+        } else {
+            "user/repos".to_owned()
+        })
         .output()
         .context("failed to run gh api")?;
 
@@ -53,7 +63,7 @@ fn get_repositories(user: &str) -> anyhow::Result<impl Iterator<Item = Repositor
                 |e| Err(e).context("failed to deserialize error"),
                 |e| Err(anyhow!(e)),
             )
-            .context(format!("failed to list repositories for user {user}"));
+            .with_context(|| format!("failed to list repositories for user {user:?}"));
     }
 
     Ok(Deserializer::from_slice(&out.stdout)
@@ -114,7 +124,7 @@ fn git_update(path: &Path) -> anyhow::Result<()> {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let root = std::env::current_dir().context("failed to get cwd")?;
-    for repo in get_repositories(&args.user)? {
+    for repo in get_repositories(args.user.as_deref())? {
         let path = root.join(&repo.name);
         if path.is_dir() {
             println!("repo {} exists; updating", repo.name);
