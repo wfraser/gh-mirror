@@ -19,6 +19,9 @@ struct Args {
     /// Mirror repositories for the logged-in user, including private repos.
     #[arg(long("self"), group = "u")]
     self_user: bool,
+
+    #[arg(long)]
+    dry_run: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -125,13 +128,20 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let root = std::env::current_dir().context("failed to get cwd")?;
     for repo in get_repositories(args.user.as_deref())? {
+        if args.dry_run {
+            eprintln!("{repo:?}");
+        }
         let path = root.join(&repo.name);
         if path.is_dir() {
             println!("repo {} exists; updating", repo.name);
-            git_update(&path)?;
+            if !args.dry_run {
+                git_update(&path)?;
+            }
         } else {
             println!("cloning {}", repo.name);
-            git_clone(&path, &repo.ssh_url)?;
+            if !args.dry_run {
+                git_clone(&path, &repo.ssh_url)?;
+            }
         }
     }
     Ok(())
