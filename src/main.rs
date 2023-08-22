@@ -133,7 +133,7 @@ fn main() -> anyhow::Result<()> {
         }
         let path = root.join(&repo.name);
         if path.is_dir() {
-            println!("repo {} exists; updating", repo.name);
+            println!("updating {}", repo.name);
             if !args.dry_run {
                 git_update(&path)?;
             }
