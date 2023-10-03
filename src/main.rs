@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use anyhow::{anyhow, Context};
 use clap::{ArgGroup, Parser};
@@ -57,6 +57,7 @@ fn get_repositories(user: Option<&str>) -> anyhow::Result<impl Iterator<Item = R
         } else {
             "user/repos".to_owned()
         })
+        .stderr(Stdio::inherit())
         .output()
         .context("failed to run gh api")?;
 
